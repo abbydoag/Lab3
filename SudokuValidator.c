@@ -19,44 +19,66 @@ int sudoku[SUDOKU_SIZE][SUDOKU_SIZE];
 //OPENMP
 //verificar filas (9x9)
 bool ver_row() {
+    bool valid = true;
+    #pragma omp parallel for shared(valid) schedule(dynamic)
     for (int i = 0; i < SUDOKU_SIZE; i++) {
         bool seen[SUDOKU_SIZE + 1] = {false};
         for (int j = 0; j < SUDOKU_SIZE; j++) {
             int num = sudoku[i][j];
-            if (num < 1 || num > 9 || seen[num]) return false;
+            if (num < 1 || num > 9 || seen[num]) {
+                #pragma omp atomic write
+                valid = false;
+            }
             seen[num] = true;
         }
     }
-    return true;
+    return valid;
 }
 
 //verificar columnas (9x9)
 void* ver_col(void* arg) {
     printf("Thread (columnas): %ld\n", syscall(SYS_gettid));
+    bool valid = true;
+    
+    #pragma omp parallel for shared(valid) schedule(dynamic)
     for (int j = 0; j < SUDOKU_SIZE; j++) {
-        bool seen[SUDOKU_SIZE + 1] = {false};
+        bool seen[SUDOKU_SIZE + 1] = {false};  // Privada por thread
         for (int i = 0; i < SUDOKU_SIZE; i++) {
             int num = sudoku[i][j];
             if (num < 1 || num > 9 || seen[num]) {
-                pthread_exit((void*)false);
+                #pragma omp atomic write
+                valid = false;
             }
             seen[num] = true;
         }
     }
-    pthread_exit((void*)true);
+    
+    pthread_exit((void*)(intptr_t)valid);
 }
 
 //subarreglo de 3x3 dentro de uno de 9x9
 bool ver_sub(int start_row, int start_col) {
     bool seen[SUDOKU_SIZE + 1] = {false};
+    bool valid = true;
+    
+    #pragma omp parallel for collapse(2) shared(valid, seen) schedule(dynamic)
     for (int i = start_row; i < start_row + 3; i++) {
         for (int j = start_col; j < start_col + 3; j++) {
             int num = sudoku[i][j];
-            if (num < 1 || num > 9 || seen[num]) return false;
-            seen[num] = true;
+            if (num < 1 || num > 9) {
+                #pragma omp atomic write
+                valid = false;
+            }
+            #pragma omp critical
+            {
+                if (seen[num]) {
+                    valid = false;
+                }
+                seen[num] = true;
+            }
         }
     }
-    return true;
+    return valid;
 }
 
 int main(int argc, char* argv[]) {
@@ -107,7 +129,7 @@ int main(int argc, char* argv[]) {
     printf("-----------------\n");
 
     // Verificar submatrices 3x3
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < SUDOKU_SIZE; i += 3) {
         for (int j = 0; j < SUDOKU_SIZE; j += 3) {
             if (!ver_sub(i, j)) {
