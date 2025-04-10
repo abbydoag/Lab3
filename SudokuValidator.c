@@ -19,6 +19,9 @@ int sudoku[SUDOKU_SIZE][SUDOKU_SIZE];
 //OPENMP
 //verificar filas (9x9)
 bool ver_row() {
+    omp_set_nested(true);              
+    omp_set_num_threads(SUDOKU_SIZE); //9 threads 9 filas
+
     bool valid = true;
     #pragma omp parallel for shared(valid) schedule(dynamic)
     for (int i = 0; i < SUDOKU_SIZE; i++) {
@@ -37,6 +40,9 @@ bool ver_row() {
 
 //verificar columnas (9x9)
 void* ver_col(void* arg) {
+    omp_set_nested(true);               
+    omp_set_num_threads(SUDOKU_SIZE); //9 threads 9 columnas
+
     printf("Thread (columnas): %ld\n", syscall(SYS_gettid));
     bool valid = true;
     
@@ -58,6 +64,9 @@ void* ver_col(void* arg) {
 
 //subarreglo de 3x3 dentro de uno de 9x9
 bool ver_sub(int start_row, int start_col) {
+    omp_set_nested(true);               
+    omp_set_num_threads(9); //9 celdas 9 threads
+
     bool seen[SUDOKU_SIZE + 1] = {false};
     bool valid = true;
     
@@ -82,6 +91,7 @@ bool ver_sub(int start_row, int start_col) {
 }
 
 int main(int argc, char* argv[]) {
+    omp_set_num_threads(4);
     if (argc != 2) {
         fprintf(stderr, "Uso: %s <archivo_sudoku>\n", argv[0]);
         return 1;
