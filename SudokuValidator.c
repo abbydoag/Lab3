@@ -29,7 +29,7 @@ bool ver_row() {
         for (int j = 0; j < SUDOKU_SIZE; j++) {
             int num = sudoku[i][j];
             if (num < 1 || num > 9 || seen[num]) {
-                #pragma omp atomic write
+                #pragma omp atomic write //evita race condiiton
                 valid = false;
             }
             seen[num] = true;
@@ -46,7 +46,7 @@ void* ver_col(void* arg) {
     printf("Thread (columnas): %ld\n", syscall(SYS_gettid));
     bool valid = true;
     
-    #pragma omp parallel for shared(valid) schedule(dynamic)
+    #pragma omp parallel for shared(valid)
     for (int j = 0; j < SUDOKU_SIZE; j++) {
         bool seen[SUDOKU_SIZE + 1] = {false};  // Privada por thread
         for (int i = 0; i < SUDOKU_SIZE; i++) {
